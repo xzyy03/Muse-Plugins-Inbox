@@ -1,0 +1,28 @@
+name: Notify plugin store
+
+# 上传新插件包后立即触发商店仓库的采集工作流，
+# 避免只依赖商店仓库的定时任务（会被 GitHub 降频到数小时一次）。
+on:
+  push:
+    paths:
+      - "incoming/*.zip"
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger store ingest
+        env:
+          STORE_TOKEN: ${{ secrets.STORE_TOKEN }}
+        run: |
+          if [ -z "$STORE_TOKEN" ]; then
+            echo "缺少 STORE_TOKEN secret，跳过" >&2
+            exit 1
+          fi
+          curl -sS -X POST \
+            -H "Authorization: Bearer $STORE_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            https://api.github.com/repos/xzyy03/Nox-Plugins-Store/actions/workflows/ingest-inbox.yml/dispatches \
+            -d '{{"ref":"main"}}'
+          echo "已请求商店仓库运行采集工作流"
